@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Sistema de Chamados</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Sistema de Chamados</h1>
+
+  <section>
+    <h2>Chamados</h2>
+    <form id="formChamado">
+      <input type="text" id="problem" placeholder="Problema">
+      <select id="status">
+        <option value="aberto">Aberto</option>
+        <option value="em andamento">Em andamento</option>
+        <option value="resolvido">Resolvido</option>
+      </select>
+      <select id="prioridade">
+        <option value="baixa">Baixa</option>
+        <option value="media" selected>Média</option>
+        <option value="alta">Alta</option>
+      </select>
+      <button type="submit">Cadastrar</button>
+    </form>
+    <table id="tabelaChamados"></table>
+  </section>
+
+  <section>
+    <h2>Técnicos</h2>
+    <form id="formTecnico">
+      <input type="text" id="nome" placeholder="Nome do técnico">
+      <input type="text" id="especialidade" placeholder="Especialidade">
+      <button type="submit">Cadastrar</button>
+    </form>
+    <table id="tabelaTecnicos"></table>
+  </section>
+
+  <!-- Modal de edição -->
+  <div id="modalEdicao" class="modal">
+    <div class="modal-content">
+      <span id="fecharModal" class="close">&times;</span>
+      <h2 id="modalTitulo">Editar Registro</h2>
+      <form id="formEdicao">
+        <input type="hidden" id="editId">
+        <div id="camposEdicao"></div>
+        <button type="submit">Salvar</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="chamados.js"></script>
+  <script src="tecnicos.js"></script>
+</body>
+</html>

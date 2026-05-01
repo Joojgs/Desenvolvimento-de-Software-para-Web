@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Teste Chamados</title>
+</head>
+<body>
+  <h1>Teste rápido de Chamados</h1>
+  <button id="btnTeste">Cadastrar chamado fixo</button>
+
+  <script>
+    document.getElementById('btnTeste').addEventListener('click', async () => {
+      const res = await fetch('http://localhost:3000/chamados', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          problem: "Teste direto pelo botão",
+          status: "aberto",
+          prioridade: "media"
+        })
+      });
+
+      const data = await res.json();
+      console.log("Resposta da API:", data);
+
+      // Agora vamos buscar todos os chamados
+      const resGet = await fetch('http://localhost:3000/chamados');
+      const dados = await resGet.json();
+      console.log("Chamados no banco:", dados);
+      alert("Veja o console do navegador (F12) para os resultados!");
+    });
+  </script>
+</body>
+</html>
