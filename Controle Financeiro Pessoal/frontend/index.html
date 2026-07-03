@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Controle Financeiro Pessoal</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">CF</span>
+          <div>
+            <strong>Controle Financeiro</strong>
+            <small>MVP pessoal</small>
+          </div>
+        </div>
+        <nav class="nav">
+          <button :class="{active: view === 'dashboard'}" @click="view = 'dashboard'">Painel</button>
+          <button :class="{active: view === 'transactions'}" @click="view = 'transactions'">Transações</button>
+          <button :class="{active: view === 'budgets'}" @click="view = 'budgets'">Orçamentos</button>
+          <button :class="{active: view === 'categories'}" @click="view = 'categories'">Categorias</button>
+        </nav>
+        <div class="sidebar-note">
+          <span>Banco SQLite ativo</span>
+          <strong>{{ stats.transactions }} lançamentos</strong>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Finanças pessoais sem planilha quebrada</p>
+            <h1>Veja seu dinheiro entrar, sair e sobrar.</h1>
+          </div>
+          <div class="month-picker">
+            <label>Mês analisado</label>
+            <input type="month" v-model="filters.month" @change="loadAll" />
+          </div>
+        </header>
+
+        <section v-if="message.text" class="toast" :class="message.type">
+          {{ message.text }}
+        </section>
+
+        <section v-if="view === 'dashboard'" class="grid dashboard-grid">
+          <article class="metric income">
+            <span>Receitas no mês</span>
+            <strong>{{ money(summary.income) }}</strong>
+          </article>
+          <article class="metric expense">
+            <span>Despesas no mês</span>
+            <strong>{{ money(summary.expense) }}</strong>
+          </article>
+          <article class="metric balance">
+            <span>Saldo do mês</span>
+            <strong>{{ money(summary.balance) }}</strong>
+          </article>
+          <article class="metric">
+            <span>Maior categoria</span>
+            <strong>{{ topCategory }}</strong>
+          </article>
+
+          <article class="panel wide">
+            <div class="panel-title">
+              <h2>Gastos por categoria</h2>
+              <small>Comparação do mês selecionado</small>
+            </div>
+            <div class="bars" v-if="summary.by_category.length">
+              <div class="bar-row" v-for="item in summary.by_category" :key="item.category_id">
+                <div class="bar-label">
+                  <span>{{ item.category }}</span>
+                  <strong>{{ money(item.total) }}</strong>
+                </div>
+                <div class="bar-track">
+                  <span :style="{ width: categoryWidth(item.total), background: item.color }"></span>
+                </div>
+              </div>
+            </div>
+            <p class="empty" v-else>Nenhuma despesa lançada nesse mês.</p>
+          </article>
+
+          <article class="panel">
+            <div class="panel-title">
+              <h2>Alertas de orçamento</h2>
+              <small>Limites por categoria</small>
+            </div>
+            <div class="budget-list" v-if="summary.budget_progress.length">
+              <div class="budget-card" v-for="budget in summary.budget_progress" :key="budget.id">
+                <div>
+                  <strong>{{ budget.category }}</strong>
+                  <span>{{ money(budget.spent) }} de {{ money(budget.limit_amount) }}</span>
+                </div>
+                <em :class="{danger: budget.percent >= 100, warn: budget.percent >= 75 && budget.percent < 100}">
+                  {{ Math.round(budget.percent) }}%
+                </em>
+              </div>
+            </div>
+            <p class="empty" v-else>Cadastre orçamentos para acompanhar limites.</p>
+          </article>
+
+          <article class="panel">
+            <div class="panel-title">
+              <h2>Últimos lançamentos</h2>
+              <small>Movimentações recentes</small>
+            </div>
+            <ul class="activity-list">
+              <li v-for="tx in transactions.slice(0, 6)" :key="tx.id">
+                <span :class="tx.type">{{ tx.type === 'income' ? '+' : '-' }}</span>
+                <div>
+                  <strong>{{ tx.description }}</strong>
+                  <small>{{ formatDate(tx.due_date) }} · {{ tx.category }}</small>
+                </div>
+                <em>{{ money(tx.amount) }}</em>
+              </li>
+            </ul>
+          </article>
+        </section>
+
+        <section v-if="view === 'transactions'" class="panel page-panel">
+          <div class="panel-title split">
+            <div>
+              <h2>CRUD de Transações</h2>
+              <small>Cadastre entradas e saídas reais do mês.</small>
+            </div>
+            <button class="ghost" @click="resetTransaction">Novo lançamento</button>
+          </div>
+
+          <form class="form-grid" @submit.prevent="saveTransaction">
+            <input v-model.trim="transactionForm.description" required placeholder="Descrição" />
+            <select v-model="transactionForm.type" @change="syncCategoryForType" required>
+              <option value="expense">Despesa</option>
+              <option value="income">Receita</option>
+            </select>
+            <select v-model.number="transactionForm.category_id" required>
+              <option disabled value="">Categoria</option>
+              <option v-for="cat in categoriesByType(transactionForm.type)" :key="cat.id" :value="cat.id">
+                {{ cat.name }}
+              </option>
+            </select>
+            <input v-model.number="transactionForm.amount" required min="0.01" step="0.01" type="number" placeholder="Valor" />
+            <input v-model="transactionForm.due_date" required type="date" />
+            <select v-model="transactionForm.payment_method">
+              <option>Pix</option>
+              <option>Débito</option>
+              <option>Crédito</option>
+              <option>Dinheiro</option>
+              <option>Transferência</option>
+            </select>
+            <input class="span-2" v-model.trim="transactionForm.notes" placeholder="Observações" />
+            <button class="primary" type="submit">{{ transactionForm.id ? 'Salvar edição' : 'Adicionar' }}</button>
+          </form>
+
+          <div class="filters">
+            <input v-model.trim="filters.q" @input="loadTransactions" placeholder="Buscar por descrição..." />
+            <select v-model="filters.type" @change="loadTransactions">
+              <option value="">Todos os tipos</option>
+              <option value="income">Receitas</option>
+              <option value="expense">Despesas</option>
+            </select>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Tipo</th>
+                  <th>Valor</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="tx in transactions" :key="tx.id">
+                  <td>{{ formatDate(tx.due_date) }}</td>
+                  <td>{{ tx.description }}</td>
+                  <td><span class="chip" :style="{borderColor: tx.color}">{{ tx.category }}</span></td>
+                  <td>{{ tx.type === 'income' ? 'Receita' : 'Despesa' }}</td>
+                  <td :class="tx.type">{{ money(tx.amount) }}</td>
+                  <td class="actions">
+                    <button @click="editTransaction(tx)">Editar</button>
+                    <button class="danger-link" @click="deleteTransaction(tx.id)">Excluir</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section v-if="view === 'budgets'" class="panel page-panel">
+          <div class="panel-title">
+            <h2>CRUD de Orçamentos</h2>
+            <small>Defina teto mensal para cada categoria de despesa.</small>
+          </div>
+          <form class="form-grid compact" @submit.prevent="saveBudget">
+            <select v-model.number="budgetForm.category_id" required>
+              <option disabled value="">Categoria de despesa</option>
+              <option v-for="cat in categoriesByType('expense')" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+            </select>
+            <input type="month" v-model="budgetForm.month" required />
+            <input type="number" min="0.01" step="0.01" v-model.number="budgetForm.limit_amount" required placeholder="Limite mensal" />
+            <button class="primary" type="submit">{{ budgetForm.id ? 'Salvar orçamento' : 'Criar orçamento' }}</button>
+          </form>
+          <div class="cards">
+            <div class="record-card" v-for="budget in budgets" :key="budget.id">
+              <span class="color-dot" :style="{background: budget.color}"></span>
+              <div>
+                <strong>{{ budget.category }}</strong>
+                <small>{{ budget.month }} · {{ money(budget.limit_amount) }}</small>
+              </div>
+              <button @click="editBudget(budget)">Editar</button>
+              <button class="danger-link" @click="deleteBudget(budget.id)">Excluir</button>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="view === 'categories'" class="panel page-panel">
+          <div class="panel-title">
+            <h2>CRUD de Categorias</h2>
+            <small>Organize receitas e despesas por finalidade.</small>
+          </div>
+          <form class="form-grid compact" @submit.prevent="saveCategory">
+            <input v-model.trim="categoryForm.name" required placeholder="Nome da categoria" />
+            <select v-model="categoryForm.type" required>
+              <option value="expense">Despesa</option>
+              <option value="income">Receita</option>
+            </select>
+            <input type="color" v-model="categoryForm.color" required />
+            <button class="primary" type="submit">{{ categoryForm.id ? 'Salvar categoria' : 'Criar categoria' }}</button>
+          </form>
+          <div class="cards">
+            <div class="record-card" v-for="cat in categories" :key="cat.id">
+              <span class="color-dot" :style="{background: cat.color}"></span>
+              <div>
+                <strong>{{ cat.name }}</strong>
+                <small>{{ cat.type === 'income' ? 'Receita' : 'Despesa' }}</small>
+              </div>
+              <button @click="editCategory(cat)">Editar</button>
+              <button class="danger-link" @click="deleteCategory(cat.id)">Excluir</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/vue.global.prod.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

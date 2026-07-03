@@ -1,0 +1,19 @@
+{
+  "name": "controle-financeiro-pessoal-mvp",
+  "version": "1.0.0",
+  "description": "MVP web de controle financeiro pessoal com frontend Vue, backend Node.js separado e banco SQLite.",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node backend/server.js"
+  },
+  "keywords": [
+    "nodejs",
+    "vue",
+    "sqlite",
+    "crud",
+    "financas-pessoais"
+  ],
+  "author": "Trabalho acadêmico",
+  "license": "MIT"
+}
