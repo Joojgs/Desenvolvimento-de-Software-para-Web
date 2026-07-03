@@ -2,7 +2,7 @@
 
 Sistema web para organizar receitas, despesas e orçamentos mensais.
 
-## Requisitos atendidos
+## Requisitos do Projeto
 
 - **Node.js** no backend.
 - **Frontend com Vue 3**.
